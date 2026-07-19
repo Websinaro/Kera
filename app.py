@@ -12,8 +12,8 @@ CORS(app)
 API_BEARER_TOKEN = os.environ.get("API_BEARER_TOKEN", "websinaro_secret_kera_secure_token_2026")
 HF_TOKEN = os.environ.get("HF_TOKEN", "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")
 
-REPO_ID = "websinaro/kera-1.5b-instruct"
-# New Hugging Face router destination using the official OpenAI-compatible endpoint
+# FIXED: Added the required router suffix ':auto' so the backend can map the model provider smoothly
+REPO_ID = "websinaro/kera-1.5b-instruct:auto"
 HF_ROUTER_URL = "https://router.huggingface.co/v1/chat/completions"
 
 SYSTEM_PROMPT = (
@@ -43,19 +43,18 @@ def chat_endpoint():
     if not user_message:
         return jsonify({"error": "Missing message parameter"}), 400
 
-    # Format conversation using standard OpenAI messages array structure
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for msg in history:
         messages.append(msg)
     messages.append({"role": "user", "content": user_message})
 
-    # Exact payload structure accepted by the new router surface
     payload = {
         "model": REPO_ID,
         "messages": messages,
         "max_tokens": 256,
         "temperature": 0.7,
-        "top_p": 0.9
+        "top_p": 0.9,
+        "stream": False
     }
 
     headers = {
@@ -78,7 +77,6 @@ def chat_endpoint():
         if response.status_code != 200:
             return jsonify({"error": "Hugging Face Router Error", "details": response_json}), response.status_code
 
-        # Extract text out of OpenAI format layout structure
         bot_response = ""
         if "choices" in response_json and len(response_json["choices"]) > 0:
             bot_response = response_json["choices"][0]["message"]["content"]
