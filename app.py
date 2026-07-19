@@ -15,7 +15,7 @@ def get_fresh_hf_url():
     Attempts standard domain routing. If Render's DNS drops it,
     queries Cloudflare's secure DNS API to fetch a working live IP.
     """
-    domain = "api-inference.huggingface.co"
+    domain = "router.huggingface.co"
     default_url = f"https://{domain}/models/websinaro/kera-1.5b-instruct"
     
     try:
