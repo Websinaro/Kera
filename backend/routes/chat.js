@@ -131,6 +131,7 @@ router.post("/:id/messages", rateLimit, async (req, res, next) => {
             imagePrompt,
           });
         } catch (genErr) {
+          console.error("[chat] generateImage failed:", genErr.message);
           assistantMessage = await Message.create({
             chat: chat._id,
             role: "assistant",
@@ -151,11 +152,11 @@ router.post("/:id/messages", rateLimit, async (req, res, next) => {
           content: replyText,
         });
       } catch (genErr) {
+        console.error("[chat] generateReply failed:", genErr.message);
         assistantMessage = await Message.create({
           chat: chat._id,
           role: "assistant",
-          content:
-            "⚠️ Sorry, I couldn't generate a reply right now (the model may be waking up). Please try again in a few seconds.",
+          content: `⚠️ Sorry, I couldn't generate a reply right now (${genErr.message}). Please try again in a few seconds.`,
         });
       }
     }

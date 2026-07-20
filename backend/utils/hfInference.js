@@ -1,12 +1,13 @@
-const axios = require("axios");
+const { getClient } = require("./hfClient");
 
-// HF's current, actively-maintained free routed inference API. It's
-// OpenAI-compatible chat completions, and HF automatically picks a partner
-// provider (Together, Novita, Fireworks, etc.) that actually serves the
-// requested model - so we no longer need to hand-build a chat template
-// ourselves, the provider applies the model's own template server-side.
-const HF_URL = process.env.HF_INFERENCE_URL || "https://router.huggingface.co/v1/chat/completions";
-const HF_MODEL = process.env.HF_MODEL || "google/gemma-2-2b-it";
+// Model id to chat with. Defaults to a widely-mirrored, ungated model so it
+// has the best chance of being live on at least one Inference Provider.
+// Always double check on the model's HF page ("Inference Providers" panel)
+// before relying on a different one.
+const HF_MODEL = process.env.HF_MODEL || "Qwen/Qwen2.5-7B-Instruct";
+// Optional: pin a specific provider (e.g. "together", "novita", "fireworks-ai").
+// Leave unset to let Hugging Face auto-pick whichever provider is live.
+const HF_CHAT_PROVIDER = process.env.HF_CHAT_PROVIDER || undefined;
 
 // Baseline behaviour rules appended to every chat's own instructions so the
 // model formats replies consistently: sensible emoji use, clean spacing,
@@ -42,58 +43,40 @@ function buildMessages(systemInstructions, history) {
 }
 
 /**
- * Calls Hugging Face's routed Inference Providers API (serverless, pay-per
- * token / free-tier credits). The model is never loaded into this server's
- * own process/RAM - the provider hosts and runs it - which is exactly what
- * keeps a free-tier backend instance from crashing.
+ * Calls Hugging Face's routed Inference Providers API (serverless, free-tier
+ * credits). The model is never loaded into this server's own process/RAM -
+ * the provider hosts and runs it - which is exactly what keeps a free-tier
+ * backend instance from crashing.
  */
 async function generateReply(systemInstructions, history, { retries = 3 } = {}) {
-  if (!process.env.HF_TOKEN) {
-    throw new Error("HF_TOKEN is not set. Add your Hugging Face access token to the environment.");
-  }
-
+  const client = getClient();
   const messages = buildMessages(systemInstructions, history);
 
+  let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const { data } = await axios.post(
-        HF_URL,
-        {
-          model: HF_MODEL,
-          messages,
-          max_tokens: 512,
-          temperature: 0.7,
-          top_p: 0.9,
-          stream: false,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.HF_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          timeout: 60000,
-        }
-      );
+      const result = await client.chatCompletion({
+        model: HF_MODEL,
+        provider: HF_CHAT_PROVIDER,
+        messages,
+        max_tokens: 512,
+        temperature: 0.7,
+        top_p: 0.9,
+      });
 
-      const text = data?.choices?.[0]?.message?.content || "";
+      const text = result?.choices?.[0]?.message?.content || "";
       return cleanUp(text);
     } catch (err) {
-      const status = err.response?.status;
-
+      lastErr = err;
       // Provider warming up / momentarily unavailable - retry with backoff.
-      if ((status === 503 || status === 429 || !status) && attempt < retries) {
+      if (attempt < retries) {
         await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
         continue;
       }
-
-      const message =
-        err.response?.data?.error?.message ||
-        err.response?.data?.error ||
-        err.message ||
-        "Hugging Face inference request failed.";
-      throw new Error(message);
     }
   }
+
+  throw new Error(lastErr?.message || "Hugging Face chat request failed.");
 }
 
 function cleanUp(text) {

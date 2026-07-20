@@ -6,11 +6,12 @@ Inference Providers API** (serverless, routed to a partner provider), so a small
 (Render, Railway, Fly.io free tier, etc.) never has to hold model weights in RAM and never
 crashes from it.
 
-By default this points at `google/gemma-2-2b-it`, a small instruct model confirmed available on
-HF's free routed inference. **Before deploying, always check your chosen model's HF page for an
-"Inference Providers" section that shows it's actually served** — many custom/private models
-(including fine-tunes) are *not* automatically hosted there and need a paid Inference Endpoint
-instead. Swap models any time via the `HF_MODEL` env var — no code changes needed.
+By default this points at `Qwen/Qwen2.5-7B-Instruct` for chat and `black-forest-labs/FLUX.1-schnell`
+for images — both widely mirrored across free-tier providers. **Before deploying, always check
+your chosen model's HF page for an "Inference Providers" section that shows it's actually
+served** — models (and which providers host them) change over time, and some providers (like the
+legacy `hf-inference`) now only serve a narrow set of small/CPU-friendly models. Swap models any
+time via `HF_MODEL` / `HF_IMAGE_MODEL` — no code changes needed.
 
 ## Features
 
@@ -36,10 +37,10 @@ kera-chat/
 └── frontend/    React (Vite) + Tailwind, single-page chat UI
 ```
 
-The backend calls `https://router.huggingface.co/v1/chat/completions` (HF's OpenAI-compatible
-Inference Providers router) with your `HF_TOKEN` and chosen `HF_MODEL` on every message — no
-local model weights, no GPU/CPU load on your server. HF auto-selects a partner provider that
-actually serves the model and applies its chat template server-side.
+The backend uses Hugging Face's official `@huggingface/inference` SDK, which auto-routes each
+request (chat or image) to whichever partner provider actually hosts the requested model, and
+speaks that provider's exact request format for us — no local model weights, no GPU/CPU load on
+your server.
 
 ## 1. Prerequisites
 
@@ -50,7 +51,7 @@ actually serves the model and applies its chat template server-side.
 - Before deploying, open your chosen model's page on huggingface.co (logged in, on any device)
   and check the **"Inference Providers"** panel actually shows it being served — if it says
   "This model isn't deployed by any Inference Provider," the free routed API won't work for it
-  and you'd need a paid Inference Endpoint instead (see `HF_INFERENCE_URL` below to point at one).
+  and you'd need a paid Inference Endpoint instead (a different setup, not covered by this SDK path).
 
 ## 2. Local setup
 
@@ -76,10 +77,10 @@ npm run dev                # http://localhost:5173 (proxies /api to :5000)
 | `JWT_SECRET` | Long random string used to sign auth tokens |
 | `JWT_EXPIRES_IN` | Login session length, e.g. `7d` |
 | `HF_TOKEN` | **Required.** Your Hugging Face access token |
-| `HF_MODEL` | Model id to use, e.g. `google/gemma-2-2b-it` — must be listed under "Inference Providers" on its HF page |
-| `HF_INFERENCE_URL` | Optional override, e.g. a paid Inference Endpoint URL instead of the free router |
+| `HF_MODEL` | Chat model id, e.g. `Qwen/Qwen2.5-7B-Instruct` — must be listed under "Inference Providers" on its HF page |
+| `HF_CHAT_PROVIDER` | Optional: pin a specific provider instead of auto-routing |
 | `HF_IMAGE_MODEL` | Image model id, default `black-forest-labs/FLUX.1-schnell` |
-| `HF_IMAGE_URL` | Optional override of the image generation endpoint |
+| `HF_IMAGE_PROVIDER` | Optional: pin a specific image provider instead of auto-routing |
 | `SESSION_LIMIT_MINUTES` | Length of a usage session (default `120` = 2h) |
 | `WINDOW_LIMIT_MESSAGES` | Messages allowed per window (default `25`) |
 | `WINDOW_LIMIT_MINUTES` | Window length (default `30`) |

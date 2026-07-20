@@ -1,7 +1,7 @@
 {
   "name": "kera-chat-backend",
   "version": "1.0.0",
-  "description": "Backend for Kera Chat - a ChatGPT-style interface for websinaro/kera-1.5b-instruct served serverlessly via Hugging Face Inference API",
+  "description": "Backend for Kera Chat - a ChatGPT-style interface powered serverlessly via Hugging Face Inference Providers",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -9,6 +9,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@huggingface/inference": "^3.6.1",
     "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
