@@ -2,8 +2,8 @@ name: Unzip and Sync
 on:
   push:
     paths:
-      - 'kera.zip' # Runs only when the zip file is updated
-  workflow_dispatch:      # Allows you to run it manually
+      - 'kera.zip' # Runs only when kera.zip is updated
+  workflow_dispatch: # Manual trigger support
 
 jobs:
   unzip-and-push:
@@ -16,28 +16,33 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install unzip
+        run: sudo apt-get update && sudo apt-get install -y unzip
+
       - name: Extract Zip
         run: |
-          # Define variables
           ZIP_FILE="kera.zip"
-          
-          echo "📂 Extracting $ZIP_FILE..."
-          unzip -o $ZIP_FILE -d .
-          
-          # Optional: Remove the zip after extraction so it's not in the repo twice
-          # rm $ZIP_FILE 
+          if [ -f "$ZIP_FILE" ]; then
+            echo "📂 Extracting $ZIP_FILE..."
+            unzip -o "$ZIP_FILE" -d .
+          else
+            echo "❌ Error: $ZIP_FILE not found."
+            exit 1
+          fi
 
       - name: Commit and Push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add .
+          # Stage all untracked/modified files (including ignored ones if needed via -f)
+          git add -A
           
-          # Only commit if there are actually changes
+          # Check for changes before committing
           if git diff --staged --quiet; then
-            echo "No changes to commit"
+            echo "No changes detected after extraction."
           else
-            git commit -m "Auto-unzip: $(date +'%Y-%m-%d %H:%M:%S')"
-            git push
+            # IMPORTANT: [skip ci] prevents the workflow from re-triggering itself endlessly
+            git commit -m "Auto-unzip: $(date +'%Y-%m-%d %H:%M:%S') [skip ci]"
+            git push origin ${{ github.ref_name }}
           fi
