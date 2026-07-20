@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-ink text-paper font-body;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(91, 140, 255, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2e39;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.prose-kera p {
+  margin: 0 0 0.75rem 0;
+  line-height: 1.65;
+}
+.prose-kera p:last-child {
+  margin-bottom: 0;
+}
+.prose-kera ul,
+.prose-kera ol {
+  margin: 0 0 0.75rem 1.25rem;
+  line-height: 1.6;
+}
+.prose-kera code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.35rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85em;
+}
+.prose-kera strong {
+  color: #fff;
+}
+
+@keyframes pulseDot {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.typing-dot {
+  animation: pulseDot 1.2s infinite ease-in-out;
+}
