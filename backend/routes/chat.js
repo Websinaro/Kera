@@ -18,10 +18,11 @@ function toModelHistory(messages) {
   const MAX_CHARS = 6000; // defensive cap so no single turn can blow the token budget
   return messages.map((m) => {
     if (m.type === "image") {
-      return {
-        role: m.role,
-        content: `[I generated an image here for the prompt: "${m.imagePrompt || "unspecified"}". I can't see the image myself, only that I made it.]`,
-      };
+      const content =
+        m.role === "user"
+          ? `[The user uploaded a reference image here${m.imagePrompt && m.imagePrompt !== "Uploaded reference image" ? ` (${m.imagePrompt})` : ""}. I can't see the image myself, only that it was uploaded.]`
+          : `[I generated an image here for the prompt: "${m.imagePrompt || "unspecified"}". I can't see the image myself, only that I made it.]`;
+      return { role: m.role, content };
     }
     const content =
       m.content.length > MAX_CHARS ? m.content.slice(0, MAX_CHARS) + " …[truncated]" : m.content;
@@ -142,17 +143,18 @@ router.post("/:id/messages", rateLimit, async (req, res, next) => {
       } else {
         try {
           let dataUrl;
-          let usedFallback = false;
+          let editWarning = null;
           if (chat.referenceImageUrl) {
             try {
               dataUrl = await generateImageEdit(imagePrompt, chat.referenceImageUrl);
             } catch (editErr) {
-              // Editing isn't supported by whichever provider is currently
-              // live for this model - fall back to a fresh generation
-              // (using the prompt alone) rather than failing the request.
+              // Editing isn't working right now (wrong task/provider, bad
+              // input, etc.) - fall back to a fresh generation rather than
+              // failing the request outright, but tell the user clearly
+              // why, instead of silently swapping images on them.
               console.error("[chat] generateImageEdit failed, falling back to text-to-image:", editErr.message);
               dataUrl = await generateImage(imagePrompt);
-              usedFallback = true;
+              editWarning = `Editing your uploaded image didn't work right now (${editErr.message}), so here's a fresh image from the prompt alone instead.`;
             }
           } else {
             dataUrl = await generateImage(imagePrompt);
@@ -172,10 +174,10 @@ router.post("/:id/messages", rateLimit, async (req, res, next) => {
             role: "assistant",
             type: "image",
             content: finalUrl,
-            imagePrompt: usedFallback
-              ? `${imagePrompt} (editing wasn't available right now, so this is a fresh image instead)`
-              : imagePrompt,
+            imagePrompt,
           });
+
+          return res.status(201).json({ userMessage, assistantMessage, usage: req.usage, warning: editWarning });
         } catch (genErr) {
           console.error("[chat] generateImage failed:", genErr.message);
           assistantMessage = await Message.create({

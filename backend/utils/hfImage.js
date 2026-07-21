@@ -62,10 +62,13 @@ async function generateImageEdit(prompt, referenceImageUrl) {
     throw new Error("Please describe how you'd like the image changed.");
   }
 
-  const { data: refBuffer } = await axios.get(referenceImageUrl, {
+  const { data: refBuffer, headers } = await axios.get(referenceImageUrl, {
     responseType: "arraybuffer",
     timeout: 30000,
   });
+  // Without an explicit MIME type, some providers can't tell this Blob is
+  // actually an image and silently reject/ignore it - always tag it.
+  const refContentType = headers?.["content-type"] || "image/png";
 
   const errors = [];
   for (const token of getAllTokens()) {
@@ -74,12 +77,13 @@ async function generateImageEdit(prompt, referenceImageUrl) {
       const blob = await client.imageToImage({
         model: HF_IMAGE_EDIT_MODEL,
         provider: HF_IMAGE_PROVIDER,
-        inputs: new Blob([refBuffer]),
+        inputs: new Blob([refBuffer], { type: refContentType }),
         parameters: { prompt: prompt.trim() },
       });
       const buffer = Buffer.from(await blob.arrayBuffer());
       return blobToDataUrl(buffer, blob.type);
     } catch (err) {
+      console.error("[hfImage] imageToImage attempt failed:", err.message);
       errors.push(err.message);
     }
   }

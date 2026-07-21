@@ -109,9 +109,10 @@ export default function Chat() {
     setMessages((prev) => [...prev, optimisticUser]);
 
     try {
-      const { userMessage, assistantMessage, usage } = await api.sendMessage(chat._id, content);
+      const { userMessage, assistantMessage, usage, warning } = await api.sendMessage(chat._id, content);
       setMessages((prev) => [...prev.filter((m) => m._id !== optimisticUser._id), userMessage, assistantMessage]);
       setUser((u) => (u ? { ...u, usage } : u));
+      if (warning) setError(warning);
       setChats((prev) => {
         const rest = prev.filter((c) => c._id !== chat._id);
         return [{ ...chat, title: chat.title === "New chat" ? content.slice(0, 60) : chat.title }, ...rest];
