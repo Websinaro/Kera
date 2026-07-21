@@ -141,9 +141,23 @@ router.post("/:id/messages", rateLimit, async (req, res, next) => {
         });
       } else {
         try {
-          const dataUrl = chat.referenceImageUrl
-            ? await generateImageEdit(imagePrompt, chat.referenceImageUrl)
-            : await generateImage(imagePrompt);
+          let dataUrl;
+          let usedFallback = false;
+          if (chat.referenceImageUrl) {
+            try {
+              dataUrl = await generateImageEdit(imagePrompt, chat.referenceImageUrl);
+            } catch (editErr) {
+              // Editing isn't supported by whichever provider is currently
+              // live for this model - fall back to a fresh generation
+              // (using the prompt alone) rather than failing the request.
+              console.error("[chat] generateImageEdit failed, falling back to text-to-image:", editErr.message);
+              dataUrl = await generateImage(imagePrompt);
+              usedFallback = true;
+            }
+          } else {
+            dataUrl = await generateImage(imagePrompt);
+          }
+
           let finalUrl = dataUrl;
           try {
             finalUrl = await uploadImage(dataUrl);
@@ -158,7 +172,9 @@ router.post("/:id/messages", rateLimit, async (req, res, next) => {
             role: "assistant",
             type: "image",
             content: finalUrl,
-            imagePrompt,
+            imagePrompt: usedFallback
+              ? `${imagePrompt} (editing wasn't available right now, so this is a fresh image instead)`
+              : imagePrompt,
           });
         } catch (genErr) {
           console.error("[chat] generateImage failed:", genErr.message);

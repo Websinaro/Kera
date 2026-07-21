@@ -6,7 +6,7 @@ Inference Providers API** (serverless, routed to a partner provider), so a small
 (Render, Railway, Fly.io free tier, etc.) never has to hold model weights in RAM and never
 crashes from it.
 
-By default this points at `Qwen/Qwen2.5-7B-Instruct` for chat and `black-forest-labs/FLUX.1-schnell`
+By default this points at `Qwen/Qwen2.5-7B-Instruct` for chat and `black-forest-labs/FLUX.2-dev`
 for images — both widely mirrored across free-tier providers. **Before deploying, always check
 your chosen model's HF page for an "Inference Providers" section that shows it's actually
 served** — models (and which providers host them) change over time, and some providers (like the
@@ -95,8 +95,8 @@ npm run dev                # http://localhost:5173 (proxies /api to :5000)
 | `HF_CHAT_PROVIDER` | Optional: pin a specific provider instead of auto-routing |
 | `GEMINI_API_KEY` | Optional last-resort chat fallback if both HF tokens fail (text only) |
 | `GEMINI_MODEL` | Gemini model id, default `gemini-2.0-flash` |
-| `HF_IMAGE_MODEL` | Image model id, default `black-forest-labs/FLUX.1-schnell` |
-| `HF_IMAGE_EDIT_MODEL` | Image-editing model, default `black-forest-labs/FLUX.1-Kontext-dev`, used once a chat has an uploaded reference image |
+| `HF_IMAGE_MODEL` | Image model id, default `black-forest-labs/FLUX.2-dev` |
+| `HF_IMAGE_EDIT_MODEL` | Image-editing model, default `black-forest-labs/FLUX.2-dev`, used once a chat has an uploaded reference image |
 | `HF_IMAGE_PROVIDER` | Optional: pin a specific image provider instead of auto-routing |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name, default `o6kkyswq` |
 | `CLOUDINARY_UPLOAD_PRESET` | Unsigned upload preset name, default `Kera_Assets` |

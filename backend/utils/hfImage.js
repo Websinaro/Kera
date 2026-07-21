@@ -1,12 +1,17 @@
 const axios = require("axios");
 const { getClient, getAllTokens } = require("./hfClient");
 
-// FLUX.1-schnell: fast, high quality, widely mirrored across free-tier
-// image providers. Always verify on the model's HF page ("Inference
-// Providers" panel) before relying on a different one.
-const HF_IMAGE_MODEL = process.env.HF_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell";
+// FLUX.2-dev: Black Forest Labs' newer, higher-quality model. It's the one
+// Hugging Face's own docs use as the reference example for BOTH
+// text-to-image and image-to-image, and it's mapped across multiple
+// providers (fal-ai, replicate, wavespeed) for image-to-image specifically -
+// unlike FLUX.1-Kontext-dev, which some providers only expose as
+// text-to-image (causing "Task 'image-to-image' not supported" errors).
+// Always verify on the model's HF page ("Inference Providers" panel) before
+// relying on a different one.
+const HF_IMAGE_MODEL = process.env.HF_IMAGE_MODEL || "black-forest-labs/FLUX.2-dev";
 // Image editing (used when the chat has an uploaded reference image).
-const HF_IMAGE_EDIT_MODEL = process.env.HF_IMAGE_EDIT_MODEL || "black-forest-labs/FLUX.1-Kontext-dev";
+const HF_IMAGE_EDIT_MODEL = process.env.HF_IMAGE_EDIT_MODEL || "black-forest-labs/FLUX.2-dev";
 // Optional: pin a specific provider (e.g. "fal-ai", "replicate", "together").
 // Leave unset to let Hugging Face auto-pick whichever provider is live.
 const HF_IMAGE_PROVIDER = process.env.HF_IMAGE_PROVIDER || undefined;
