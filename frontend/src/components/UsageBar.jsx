@@ -18,6 +18,16 @@ export default function UsageBar({ usage }) {
   }, []);
 
   if (!usage) return null;
+
+  if (usage.unlimited) {
+    return (
+      <div className="px-4 py-2.5 border-t border-line bg-panel text-xs text-mist flex items-center gap-1.5">
+        <span className="text-signal">⚡</span>
+        <span>Unlimited access — admin account</span>
+      </div>
+    );
+  }
+
   const { remaining = 25, limit = 25, windowResetAt, sessionResetAt } = usage;
   const pct = Math.max(0, Math.min(100, (remaining / limit) * 100));
   const low = remaining <= 5;

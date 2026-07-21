@@ -18,6 +18,7 @@ function publicUser(user, usage) {
     id: user._id,
     username: user.username,
     email: user.email,
+    isAdmin: !!usage?.isAdmin,
     usage,
   };
 }

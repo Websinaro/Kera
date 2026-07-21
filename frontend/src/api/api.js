@@ -43,6 +43,11 @@ export const api = {
   reactMessage: (messageId, liked) =>
     request(`/chats/messages/${messageId}/react`, { method: "POST", body: { liked } }),
 
+  uploadReferenceImage: (chatId, imageDataUrl) =>
+    request(`/chats/${chatId}/reference-image`, { method: "POST", body: { imageDataUrl } }),
+  clearReferenceImage: (chatId) =>
+    request(`/chats/${chatId}/reference-image`, { method: "DELETE" }),
+
   createShareLink: (chatId) => request(`/chats/${chatId}/share`, { method: "POST" }),
   revokeShareLink: (chatId) => request(`/chats/${chatId}/share`, { method: "DELETE" }),
 

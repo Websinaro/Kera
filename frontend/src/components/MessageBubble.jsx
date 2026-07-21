@@ -49,7 +49,10 @@ export default function MessageBubble({ message, readOnly }) {
   };
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} px-4`}>
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} gap-2.5 px-4 animate-fadein`}>
+      {!isUser && (
+        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-signal to-signal2 shrink-0 mt-0.5" />
+      )}
       <div className={`max-w-[75ch] w-fit ${isUser ? "items-end" : "items-start"} flex flex-col gap-1.5`}>
         <div
           className={`rounded-xl2 ${isImage ? "p-2" : "px-4 py-3"} text-[0.93rem] ${

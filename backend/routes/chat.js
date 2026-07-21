@@ -5,10 +5,29 @@ const Message = require("../models/Message");
 const auth = require("../middleware/auth");
 const { rateLimit } = require("../middleware/rateLimit");
 const { generateReply } = require("../utils/hfInference");
-const { generateImage } = require("../utils/hfImage");
+const { generateImage, generateImageEdit } = require("../utils/hfImage");
+const { uploadImage } = require("../utils/cloudinary");
 
 const router = express.Router();
 const SHARE_TTL_MS = (Number(process.env.SHARE_LINK_TTL_HOURS) || 2) * 60 * 60 * 1000;
+
+// Image messages store a huge base64 data URL as their content - never send
+// that to the text model (it blows past token limits instantly). Swap it
+// for a short text summary instead so Kera still "remembers" it happened.
+function toModelHistory(messages) {
+  const MAX_CHARS = 6000; // defensive cap so no single turn can blow the token budget
+  return messages.map((m) => {
+    if (m.type === "image") {
+      return {
+        role: m.role,
+        content: `[I generated an image here for the prompt: "${m.imagePrompt || "unspecified"}". I can't see the image myself, only that I made it.]`,
+      };
+    }
+    const content =
+      m.content.length > MAX_CHARS ? m.content.slice(0, MAX_CHARS) + " …[truncated]" : m.content;
+    return { role: m.role, content };
+  });
+}
 
 // All routes below require auth
 router.use(auth);
@@ -122,12 +141,23 @@ router.post("/:id/messages", rateLimit, async (req, res, next) => {
         });
       } else {
         try {
-          const dataUrl = await generateImage(imagePrompt);
+          const dataUrl = chat.referenceImageUrl
+            ? await generateImageEdit(imagePrompt, chat.referenceImageUrl)
+            : await generateImage(imagePrompt);
+          let finalUrl = dataUrl;
+          try {
+            finalUrl = await uploadImage(dataUrl);
+          } catch (uploadErr) {
+            // If Cloudinary upload fails for some reason, fall back to
+            // storing the base64 data URL directly so the feature still
+            // works - just without the CDN/storage benefits.
+            console.error("[chat] Cloudinary upload failed, falling back to inline image:", uploadErr.message);
+          }
           assistantMessage = await Message.create({
             chat: chat._id,
             role: "assistant",
             type: "image",
-            content: dataUrl,
+            content: finalUrl,
             imagePrompt,
           });
         } catch (genErr) {
@@ -142,10 +172,7 @@ router.post("/:id/messages", rateLimit, async (req, res, next) => {
     } else {
       // ---- Normal text reply ----
       try {
-        const replyText = await generateReply(
-          chat.instructions,
-          history.map((m) => ({ role: m.role, content: m.content }))
-        );
+        const replyText = await generateReply(chat.instructions, toModelHistory(history));
         assistantMessage = await Message.create({
           chat: chat._id,
           role: "assistant",
@@ -166,6 +193,63 @@ router.post("/:id/messages", rateLimit, async (req, res, next) => {
       assistantMessage,
       usage: req.usage,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---- Upload a reference image (for image-based memory / editing) ----
+router.post("/:id/reference-image", rateLimit, async (req, res, next) => {
+  try {
+    const { imageDataUrl } = req.body;
+    if (!imageDataUrl || !imageDataUrl.startsWith("data:image/")) {
+      return res.status(400).json({ error: "A valid image is required." });
+    }
+
+    const chat = await Chat.findOne({ _id: req.params.id, user: req.user._id });
+    if (!chat) return res.status(404).json({ error: "Chat not found." });
+
+    let url = imageDataUrl;
+    try {
+      url = await uploadImage(imageDataUrl);
+    } catch (uploadErr) {
+      console.error("[chat] reference image Cloudinary upload failed, using inline data:", uploadErr.message);
+    }
+
+    chat.referenceImageUrl = url;
+    await chat.save();
+
+    const userMessage = await Message.create({
+      chat: chat._id,
+      role: "user",
+      type: "image",
+      content: url,
+      imagePrompt: "Uploaded reference image",
+    });
+
+    const assistantMessage = await Message.create({
+      chat: chat._id,
+      role: "assistant",
+      content:
+        "Got it — I'll remember this image. 🖼️ Type `/image <what to change>` and I'll edit it, or upload a new one to replace it anytime.",
+    });
+
+    res.status(201).json({ chat, userMessage, assistantMessage, usage: req.usage });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---- Clear the chat's reference image ----
+router.delete("/:id/reference-image", async (req, res, next) => {
+  try {
+    const chat = await Chat.findOne({ _id: req.params.id, user: req.user._id });
+    if (!chat) return res.status(404).json({ error: "Chat not found." });
+
+    chat.referenceImageUrl = null;
+    await chat.save();
+
+    res.json({ chat });
   } catch (err) {
     next(err);
   }

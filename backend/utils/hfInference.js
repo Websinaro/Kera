@@ -1,4 +1,5 @@
-const { getClient } = require("./hfClient");
+const { getClient, getAllTokens } = require("./hfClient");
+const { generateGeminiReply } = require("./gemini");
 
 // Model id to chat with. Defaults to a widely-mirrored, ungated model so it
 // has the best chance of being live on at least one Inference Provider.
@@ -21,6 +22,8 @@ Identity rules you must always follow:
 - Stay in character as Kera consistently across the whole conversation.
 - You can generate images: if the user wants one, tell them to start a message
   with "/image" followed by a description (e.g. "/image a fox in the snow").
+  If they've uploaded a reference image, /image will edit that image instead
+  of starting from scratch.
 
 Formatting rules you must always follow:
 - Use clear paragraphs and blank lines between ideas, never wall-of-text.
@@ -36,25 +39,32 @@ Formatting rules you must always follow:
 
 function buildMessages(systemInstructions, history) {
   const system = [BASE_STYLE_GUIDE, systemInstructions?.trim()].filter(Boolean).join("\n\n");
-  return [
-    { role: "system", content: system },
-    ...history.map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
-  ];
+  return {
+    system,
+    messages: [
+      { role: "system", content: system },
+      ...history.map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
+    ],
+  };
 }
 
 /**
- * Calls Hugging Face's routed Inference Providers API (serverless, free-tier
- * credits). The model is never loaded into this server's own process/RAM -
- * the provider hosts and runs it - which is exactly what keeps a free-tier
- * backend instance from crashing.
+ * Chat generation with a three-step fallback chain, so a single free-tier
+ * quota running out doesn't take the app down:
+ *   1. HF_TOKEN            (first Hugging Face account's free quota)
+ *   2. HF_TOKEN_2          (second Hugging Face account's free quota)
+ *   3. Gemini free API     (text-only fallback, no image support)
+ * The model is never loaded into this server's own process/RAM in any of
+ * these cases - everything runs on the provider's infrastructure.
  */
-async function generateReply(systemInstructions, history, { retries = 3 } = {}) {
-  const client = getClient();
-  const messages = buildMessages(systemInstructions, history);
+async function generateReply(systemInstructions, history) {
+  const { system, messages } = buildMessages(systemInstructions, history);
+  const tokens = getAllTokens();
+  const errors = [];
 
-  let lastErr;
-  for (let attempt = 0; attempt <= retries; attempt++) {
+  for (const token of tokens) {
     try {
+      const client = getClient(token);
       const result = await client.chatCompletion({
         model: HF_MODEL,
         provider: HF_CHAT_PROVIDER,
@@ -63,20 +73,23 @@ async function generateReply(systemInstructions, history, { retries = 3 } = {}) 
         temperature: 0.7,
         top_p: 0.9,
       });
-
       const text = result?.choices?.[0]?.message?.content || "";
-      return cleanUp(text);
+      if (text) return cleanUp(text);
+      errors.push("HF returned an empty response.");
     } catch (err) {
-      lastErr = err;
-      // Provider warming up / momentarily unavailable - retry with backoff.
-      if (attempt < retries) {
-        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
-        continue;
-      }
+      errors.push(`HF: ${err.message}`);
     }
   }
 
-  throw new Error(lastErr?.message || "Hugging Face chat request failed.");
+  // Every HF token failed (or none configured) - fall back to Gemini.
+  try {
+    const text = await generateGeminiReply(system, history);
+    return cleanUp(text);
+  } catch (err) {
+    errors.push(`Gemini: ${err.message}`);
+  }
+
+  throw new Error(errors.join(" | "));
 }
 
 function cleanUp(text) {
