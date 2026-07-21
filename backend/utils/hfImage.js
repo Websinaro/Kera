@@ -1,15 +1,17 @@
 const axios = require("axios");
 const { getClient, getAllTokens } = require("./hfClient");
 
-// FLUX.2-dev: Black Forest Labs' newer, higher-quality model. It's the one
-// Hugging Face's own docs use as the reference example for BOTH
-// text-to-image and image-to-image, and it's mapped across multiple
-// providers (fal-ai, replicate, wavespeed) for image-to-image specifically -
-// unlike FLUX.1-Kontext-dev, which some providers only expose as
-// text-to-image (causing "Task 'image-to-image' not supported" errors).
+// IMPORTANT: a single model ID can support different tasks on different
+// providers (e.g. FLUX.2-dev is image-to-image-only on fal-ai but works
+// fine for text-to-image on other providers) - trying to reuse one model
+// id for both tasks is what caused the flip-flopping "task not supported"
+// errors. So generation and editing intentionally use DIFFERENT models,
+// each one Hugging Face's own docs confirm for that specific task:
+//   - text-to-image  -> FLUX.1-dev   (HF's reference example for generation)
+//   - image-to-image -> FLUX.2-dev   (HF's reference example for editing)
 // Always verify on the model's HF page ("Inference Providers" panel) before
 // relying on a different one.
-const HF_IMAGE_MODEL = process.env.HF_IMAGE_MODEL || "black-forest-labs/FLUX.2-dev";
+const HF_IMAGE_MODEL = process.env.HF_IMAGE_MODEL || "black-forest-labs/FLUX.1-dev";
 // Image editing (used when the chat has an uploaded reference image).
 const HF_IMAGE_EDIT_MODEL = process.env.HF_IMAGE_EDIT_MODEL || "black-forest-labs/FLUX.2-dev";
 // Optional: pin a specific provider (e.g. "fal-ai", "replicate", "together").

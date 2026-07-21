@@ -6,11 +6,15 @@ Inference Providers API** (serverless, routed to a partner provider), so a small
 (Render, Railway, Fly.io free tier, etc.) never has to hold model weights in RAM and never
 crashes from it.
 
-By default this points at `Qwen/Qwen2.5-7B-Instruct` for chat and `black-forest-labs/FLUX.2-dev`
-for images — both widely mirrored across free-tier providers. **Before deploying, always check
-your chosen model's HF page for an "Inference Providers" section that shows it's actually
-served** — models (and which providers host them) change over time, and some providers (like the
-legacy `hf-inference`) now only serve a narrow set of small/CPU-friendly models. Swap models any
+By default this points at `Qwen/Qwen2.5-7B-Instruct` for chat, `black-forest-labs/FLUX.1-dev` for
+image generation, and `black-forest-labs/FLUX.2-dev` for image editing. **Note that generation
+and editing intentionally use different models** — a single model ID can support different tasks
+on different providers (one provider might only offer it for text-to-image, another only for
+image-to-image), so pinning one model per task avoids "task not supported" errors. **Before
+deploying, always check your chosen model's HF page for an "Inference Providers" section that
+shows it's actually served** — models (and which providers host them) change over time, and some
+providers (like the legacy `hf-inference`) now only serve a narrow set of small/CPU-friendly
+models. Swap models any
 time via `HF_MODEL` / `HF_IMAGE_MODEL` — no code changes needed.
 
 ## Features
@@ -95,8 +99,8 @@ npm run dev                # http://localhost:5173 (proxies /api to :5000)
 | `HF_CHAT_PROVIDER` | Optional: pin a specific provider instead of auto-routing |
 | `GEMINI_API_KEY` | Optional last-resort chat fallback if both HF tokens fail (text only) |
 | `GEMINI_MODEL` | Gemini model id, default `gemini-2.0-flash` |
-| `HF_IMAGE_MODEL` | Image model id, default `black-forest-labs/FLUX.2-dev` |
-| `HF_IMAGE_EDIT_MODEL` | Image-editing model, default `black-forest-labs/FLUX.2-dev`, used once a chat has an uploaded reference image |
+| `HF_IMAGE_MODEL` | Text-to-image model id, default `black-forest-labs/FLUX.1-dev` |
+| `HF_IMAGE_EDIT_MODEL` | Image-to-image (editing) model id, default `black-forest-labs/FLUX.2-dev` — deliberately a *different* model than `HF_IMAGE_MODEL`, see note above |
 | `HF_IMAGE_PROVIDER` | Optional: pin a specific image provider instead of auto-routing |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name, default `o6kkyswq` |
 | `CLOUDINARY_UPLOAD_PRESET` | Unsigned upload preset name, default `Kera_Assets` |
