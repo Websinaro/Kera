@@ -1,10 +1,22 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { api } from "../api/api.js";
+import AdminExportModal from "./AdminExportModal.jsx";
 
 export default function Sidebar({ chats, activeChatId, onNewChat, onDeleteChat, open, onClose }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [exportEnabled, setExportEnabled] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  useEffect(() => {
+    if (!user?.isAdmin) return;
+    api
+      .adminExportStatus()
+      .then(({ enabled }) => setExportEnabled(!!enabled))
+      .catch(() => setExportEnabled(false));
+  }, [user?.isAdmin]);
 
   return (
     <>
@@ -55,6 +67,18 @@ export default function Sidebar({ chats, activeChatId, onNewChat, onDeleteChat, 
           ))}
         </div>
 
+        {user?.isAdmin && exportEnabled && (
+          <div className="px-3 pb-2">
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="w-full text-xs text-mist hover:text-paper border border-line hover:bg-white/5 rounded-lg py-2 transition-colors"
+              title="Testing only - disabled in production"
+            >
+              🧪 Export chats (test)
+            </button>
+          </div>
+        )}
+
         <div className="p-3 border-t border-line flex items-center justify-between">
           <div className="text-sm truncate">
             <div className="font-medium truncate">{user?.username}</div>
@@ -68,6 +92,8 @@ export default function Sidebar({ chats, activeChatId, onNewChat, onDeleteChat, 
           </button>
         </div>
       </aside>
+
+      {showExportModal && <AdminExportModal onClose={() => setShowExportModal(false)} />}
     </>
   );
 }

@@ -8,6 +8,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth");
 const chatRoutes = require("./routes/chat");
 const shareRoutes = require("./routes/share");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/share", shareRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Serve the built React frontend (dist) if present, so this single
 // service can be deployed as one free-tier web app.
