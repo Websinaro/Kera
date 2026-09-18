@@ -102,8 +102,8 @@ async function generateReply(systemInstructions, history) {
         provider: HF_CHAT_PROVIDER,
         messages,
         max_tokens: 512,
-        temperature: 0.7,
-        top_p: 0.9,
+        temperature: 1.2,
+        top_p: 1,
       });
       const text = result?.choices?.[0]?.message?.content || "";
       if (text) return cleanUp(text);
